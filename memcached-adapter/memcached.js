@@ -15,8 +15,8 @@ function Memcached(args){
 }
 
 function process_cmd(memcached,socket){
-    var args=socket['cmdArgs'];
-    var cmd=socket['cmd'];
+    var args=socket['_cmdArgs'];
+    var cmd=socket['_cmd'];
     switch(cmd){
     case 'get':
         memcached._handle_get(socket,args);
@@ -37,8 +37,8 @@ function process_cmd(memcached,socket){
     }
 }
 Memcached.prototype._reset=function(socket){
-    socket['cmd']=null;
-    socket['cmdArgs']=null;
+    socket['_cmd']=null;
+    socket['_cmdArgs']=null;
 }
 
 Memcached.prototype.start=function(){
@@ -50,21 +50,21 @@ Memcached.prototype.start=function(){
     this.server=net.createServer(function(socket){
         socket.setEncoding("utf-8");
         socket.setNoDelay(true);
-        socket['data']='';
+        socket['_data']='';
         socket.on('data',function(data){
-            socket['data']+=data;
-            if(socket['cmd']!=null){
+            socket['_data']+=data;
+            if(socket['_cmd']!=null){
                 process_cmd(self,socket);
                 return;
             }
-            var index=socket['data'].indexOf("\r\n");
+            var index=socket['_data'].indexOf("\r\n");
             if(index>=0){
-                var line=socket['data'].substring(0,index);
-                socket['data']=socket['data'].substring(index+2);
+                var line=socket['_data'].substring(0,index);
+                socket['_data']=socket['_data'].substring(index+2);
                 var tmps=line.split(" ");
-                socket['cmd']=tmps[0];
+                socket['_cmd']=tmps[0];
                 tmps.splice(0,1);
-                socket['cmdArgs']=tmps;
+                socket['_cmdArgs']=tmps;
                 process_cmd(self,socket);
             }
         });
@@ -113,18 +113,18 @@ Memcached.prototype._handle_delete=function(socket,tmps){
 Memcached.prototype._handle_set=function(socket,tmps){
     var key=new Buffer(tmps[0]);
     var len=Number(tmps[3]);
-    if(socket['data'].length<len){
+    if(socket['_data'].length<len){
         return;
     }
-    var index=socket['data'].indexOf("\r\n");
+    var index=socket['_data'].indexOf("\r\n");
     if(index!=len){
         this._reset(socket);
-        socket['data']=socket['data'].substring(index+2);
+        socket['_data']=socket['_data'].substring(index+2);
         socket.write("CLIENT_ERROR invalid_value\r\n");
         return;
     }
-    var value=new Buffer(socket['data'].substring(0,len));
-    socket['data']=socket['data'].substring(len+2);
+    var value=new Buffer(socket['_data'].substring(0,len));
+    socket['_data']=socket['_data'].substring(len+2);
     var status=this.db.put({},key,value);
     if(status=='OK'){
         this._reset(socket);
