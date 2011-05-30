@@ -47,6 +47,9 @@ Then to test, run the demo script
 
     node demo/demo.js
 
+Then to run memcached adpater
+    node memcached-adapter/memcached.js
+
 The leveldb library is bundled in the deps folder and is compiled in staticly.  The resulting node addon is about 4mb unstripped.  If you want to make it smaller, I've had success using the `strip` command on it which shrinks it down to about 300kb.
 
     strip build/default/leveldb.node
