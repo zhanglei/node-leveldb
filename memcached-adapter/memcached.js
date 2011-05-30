@@ -17,7 +17,8 @@ function Memcached(args){
 
 function process_cmd(memcached,socket){
     var args=socket['cmdArgs'];
-    switch(socket['cmd']){
+    var cmd=socket['cmd'];
+    switch(cmd){
     case 'get':
         memcached._handle_get(socket,args);
         break;
@@ -102,6 +103,9 @@ Memcached.prototype._handle_delete=function(socket,tmps){
     if(status=='OK'){
         this._reset(socket);
         socket.write("DELETED\r\n");
+    }else{
+        this._reset(socket);
+        socket.write("SERVER_ERROR "+status+"\r\n");
     }
 }
 
