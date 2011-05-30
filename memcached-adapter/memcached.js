@@ -9,36 +9,36 @@ function Memcached(args){
     this.server=null;
     this.path=args['path']||__dirname + "/testdb";
     this.db=new DB();
-    this.cmd=null;
-    this.cmdArgs=null;
     this.port=args['port']|| 11211;
     process.on('exit',function(db){
         db.close();
     },this.db);
 }
 
-function process_cmd(memcached,cmd,socket,tmps){
-    switch(cmd){
+function process_cmd(memcached,socket){
+    var args=socket['cmdArgs'];
+    switch(socket['cmd']){
     case 'get':
-        memcached._handle_get(socket,tmps);
+        memcached._handle_get(socket,args);
         break;
     case 'set':
-        memcached._handle_set(socket,tmps);
+        memcached._handle_set(socket,args);
         break;
     case 'delete':
-        memcached._handle_delete(socket,tmps);
+        memcached._handle_delete(socket,args);
         break;
     case 'quit':
+        memcached._reset(socket);
         socket.end();
         break;
     default:
-        memcached._reset();
+        memcached._reset(socket);
         socket.write("SERVER_ERROR unknow command:"+cmd);
     }
 }
-Memcached.prototype._reset=function(){
-    this.cmd=null;
-    this.cmdArgs=null;
+Memcached.prototype._reset=function(socket){
+    socket['cmd']=null;
+    socket['cmdArgs']=null;
 }
 
 Memcached.prototype.start=function(){
@@ -52,8 +52,8 @@ Memcached.prototype.start=function(){
         socket.setNoDelay(true);
         socket.on('data',function(data){
             self.data+=data;
-            if(self.cmd!=null){
-                process_cmd(self,self.cmd,socket,self.cmdArgs);
+            if(socket['cmd']!=null){
+                process_cmd(self,socket);
                 return;
             }
             var index=self.data.indexOf("\r\n");
@@ -61,10 +61,10 @@ Memcached.prototype.start=function(){
                 var line=self.data.substring(0,index);
                 self.data=self.data.substring(index+2);
                 var tmps=line.split(" ");
-                self.cmd=tmps[0];
+                socket['cmd']=tmps[0];
                 tmps.splice(0,1);
-                self.cmdArgs=tmps;
-                process_cmd(self,self.cmd,socket,tmps);
+                socket['cmdArgs']=tmps;
+                process_cmd(self,socket);
             }
         });
     });
@@ -73,7 +73,7 @@ Memcached.prototype.start=function(){
 }
 Memcached.prototype._handle_get=function(socket,keys){
     if(keys.length==0){
-        this._reset();
+        this._reset(socket);
         socket.write("CLIENT_ERROR invalid_keys\r\n");
         return;
     }
@@ -93,14 +93,14 @@ Memcached.prototype._handle_get=function(socket,keys){
         }
     });
     socket.write("END\r\n");
-    this._reset();
+    this._reset(socket);
 }
 
 Memcached.prototype._handle_delete=function(socket,tmps){
     var key=new Buffer(tmps[0]);
     var status = this.db.del({}, key);
     if(status=='OK'){
-        this._reset();
+        this._reset(socket);
         socket.write("DELETED\r\n");
     }
 }
@@ -114,7 +114,7 @@ Memcached.prototype._handle_set=function(socket,tmps){
     }
     var index=this.data.indexOf("\r\n");
     if(index!=len){
-        this._reset();
+        this._reset(socket);
         this.data=this.data.substring(index+2);
         socket.write("CLIENT_ERROR invalid_value\r\n");
         return;
@@ -123,15 +123,15 @@ Memcached.prototype._handle_set=function(socket,tmps){
     this.data=this.data.substring(len+2);
     var status=this.db.put({},key,value);
     if(status=='OK'){
-        this._reset();
+        this._reset(socket);
         socket.write("STORED\r\n");
     }else{
-        this._reset();
+        this._reset(socket);
         socket.write("SERVER_ERROR "+status+"\r\n");
     }
 }
-
-
-var m=new Memcached({});
-
-m.start();
+module.exports.Memcached=Memcached
+if(require.main==module){
+    var m=new Memcached({});
+    m.start();
+}
