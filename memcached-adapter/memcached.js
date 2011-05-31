@@ -33,7 +33,7 @@ function process_cmd(memcached,socket){
         break;
     default:
         memcached._reset(socket);
-        socket.write("SERVER_ERROR unknow command:"+cmd);
+        socket.write("SERVER_ERROR unknow command:"+cmd+"\r\n");
     }
 }
 Memcached.prototype._reset=function(socket){
@@ -58,7 +58,7 @@ Memcached.prototype.start=function(){
                 return;
             }
             var index=socket['_data'].indexOf("\r\n");
-            if(index>=0){
+            while(index>0){
                 var line=socket['_data'].substring(0,index);
                 socket['_data']=socket['_data'].substring(index+2);
                 var tmps=line.split(" ");
@@ -66,6 +66,7 @@ Memcached.prototype.start=function(){
                 tmps.splice(0,1);
                 socket['_cmdArgs']=tmps;
                 process_cmd(self,socket);
+                index=socket['_data'].indexOf("\r\n");
             }
         });
     });
